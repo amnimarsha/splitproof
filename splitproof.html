@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SplitProof | Subscription Splitting on Monad</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<style>
+
+    :root {
+
+      --bg: #f6f7fb;
+
+      --panel: rgba(255, 255, 255, 0.88);
+
+      --text: #111827;
+
+      --muted: #6b7280;
+
+      --line: #e5e7eb;
+
+      --primary: #6d5dfc;
+
+      --primary-dark: #5145d8;
+
+      --soft-primary: #eeecff;
+
+      --success: #16a34a;
+
+      --warning: #d97706;
+
+      --danger: #dc2626;
+
+      --shadow: 0 24px 70px rgba(17, 24, 39, 0.08);
+
+      --radius: 24px;
+
+    }
+ 
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+
+    body { background: radial-gradient(circle at top left, #ede9ff 0, transparent 35%), linear-gradient(135deg, #f8fafc 0%, #f3f4ff 100%); color: var(--text); min-height: 100vh; }
+
+    .app { max-width: 1240px; margin: 0 auto; padding: 28px; }
+ 
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-bottom: 26px; }
+
+    .logo { display: flex; align-items: center; gap: 12px; }
+
+    .logo-mark { width: 44px; height: 44px; border-radius: 16px; background: linear-gradient(135deg, var(--primary), #9f7aea); color: white; display: grid; place-items: center; font-weight: 900; box-shadow: 0 12px 30px rgba(109, 93, 252, .35); }
+
+    .logo h1 { font-size: 26px; letter-spacing: -0.04em; }
+
+    .logo p { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+    .wallet-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+    .wallet-pill { background: white; border: 1px solid var(--line); padding: 11px 14px; border-radius: 999px; color: #374151; font-size: 14px; box-shadow: 0 8px 26px rgba(17, 24, 39, .04); }
+ 
+    button { border: none; cursor: pointer; border-radius: 14px; padding: 12px 16px; font-weight: 800; transition: .2s ease; }
+
+    button:hover { transform: translateY(-1px); }
+
+    .btn-primary { background: var(--primary); color: white; box-shadow: 0 12px 28px rgba(109, 93, 252, .25); }
+
+    .btn-primary:hover { background: var(--primary-dark); }
+
+    .btn-dark { background: #111827; color: white; }
+
+    .btn-light { background: #eef0f6; color: #111827; }
+
+    .btn-danger { background: #fee2e2; color: var(--danger); }
+
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+ 
+    .hero { display: grid; grid-template-columns: 1.15fr .85fr; gap: 22px; align-items: stretch; margin-bottom: 24px; }
+
+    .hero-card, .panel { background: var(--panel); backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.8); border-radius: var(--radius); box-shadow: var(--shadow); }
+
+    .hero-card { padding: 34px; overflow: hidden; position: relative; }
+
+    .hero-card::after { content: ""; position: absolute; width: 240px; height: 240px; border-radius: 999px; background: rgba(109, 93, 252, .12); right: -80px; top: -80px; }
+
+    .hero h2 { font-size: 42px; line-height: 1.05; letter-spacing: -0.05em; max-width: 680px; position: relative; z-index: 1; }
+
+    .hero p { color: var(--muted); line-height: 1.65; margin-top: 14px; max-width: 650px; position: relative; z-index: 1; }
+
+    .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; position: relative; z-index: 1; }
+
+    .quick-panel { padding: 24px; }
+
+    .quick-panel h3 { font-size: 18px; margin-bottom: 14px; }
+
+    .step { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+
+    .step:last-child { border-bottom: 0; }
+
+    .step-num { min-width: 28px; height: 28px; border-radius: 10px; display: grid; place-items: center; background: var(--soft-primary); color: var(--primary); font-weight: 900; }
+
+    .step b { font-size: 14px; }
+
+    .step small { color: var(--muted); display: block; margin-top: 3px; line-height: 1.4; }
+ 
+    .tabs { display: flex; gap: 10px; margin: 22px 0; overflow-x: auto; padding-bottom: 4px; }
+
+    .tab { background: rgba(255,255,255,.7); border: 1px solid var(--line); color: #4b5563; white-space: nowrap; }
+
+    .tab.active { background: #111827; color: white; border-color: #111827; }
+ 
+    .section { display: none; }
+
+    .section.active { display: block; }
+
+    .grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 22px; }
+
+    .panel { padding: 24px; }
+
+    .panel h2 { font-size: 21px; letter-spacing: -0.02em; margin-bottom: 10px; }
+
+    .helper { color: var(--muted); font-size: 14px; line-height: 1.55; margin-bottom: 18px; }
+
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+
+    .full { grid-column: 1 / -1; }
+
+    label { display: block; font-size: 13px; font-weight: 800; color: #374151; margin-bottom: 7px; }
+
+    input { width: 100%; padding: 14px; border: 1px solid var(--line); background: #fbfcff; border-radius: 14px; outline: none; color: var(--text); }
+
+    input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(109, 93, 252, .12); }
+ 
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+
+    .stat { background: linear-gradient(180deg, #ffffff, #f8f7ff); border: 1px solid #ecebff; border-radius: 20px; padding: 16px; }
+
+    .stat span { color: var(--muted); font-size: 12px; font-weight: 700; }
+
+    .stat strong { display: block; margin-top: 8px; font-size: 20px; letter-spacing: -0.03em; color: #20164d; word-break: break-word; }
+ 
+    .notice { padding: 14px 16px; background: #eff6ff; border: 1px solid #dbeafe; color: #1e3a8a; border-radius: 16px; line-height: 1.5; font-size: 14px; margin-bottom: 16px; }
+
+    .status { margin-top: 16px; padding: 14px; border-radius: 16px; background: #f3f4f6; color: #374151; font-size: 14px; line-height: 1.55; }
+
+    .activity-item, .member-card { background: #fbfcff; border: 1px solid var(--line); border-radius: 18px; padding: 15px; margin-bottom: 12px; }
+
+    .address { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; word-break: break-all; color: #4b5563; }
+
+    .badge { padding: 6px 10px; border-radius: 999px; font-size: 11px; font-weight: 900; display: inline-block; margin-top: 8px; }
+
+    .green { background: #dcfce7; color: #166534; }
+
+    .yellow { background: #fef3c7; color: #92400e; }
+
+    .red { background: #fee2e2; color: #991b1b; }
+
+    .purple { background: var(--soft-primary); color: var(--primary); }
+
+    small { color: var(--muted); display: block; margin-top: 7px; line-height: 1.45; }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+
+    .hidden-admin { display: none; }
+ 
+    @media (max-width: 900px) {
+
+      .hero, .grid, .form-grid, .stats { grid-template-columns: 1fr; }
+
+      .topbar { flex-direction: column; align-items: flex-start; }
+
+      .hero h2 { font-size: 32px; }
+
+      .app { padding: 18px; }
+
+    }
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+<div class="logo">
+<div class="logo-mark">SP</div>
+<div>
+<h1>SplitProof</h1>
+<p>Subscription splitting powered by Monad</p>
+</div>
+</div>
+<div class="wallet-actions">
+<div id="walletId" class="wallet-pill">Wallet not connected</div>
+<button class="btn-primary" onclick="connectWallet()">Connect MetaMask</button>
+</div>
+</header>
+ 
+    <section class="hero">
+<div class="hero-card">
+<h2>Split shared subscriptions with proof, deposits, and wallet-based payments.</h2>
+<p>Create a group, invite members through their wallet address, collect MON deposits, and track every important action in a transparent activity log.</p>
+<div class="hero-actions">
+<button class="btn-primary" onclick="showTabById('create')">Create a group</button>
+<button class="btn-light" onclick="showTabById('invite')">Join / invite</button>
+<button class="btn-ghost" onclick="loadGroup()">Refresh dashboard</button>
+</div>
+</div>
+<div class="quick-panel panel">
+<h3>How it works</h3>
+<div class="step"><div class="step-num">1</div><div><b>Create plan</b><small>Set the fiat plan amount and MON conversion rate.</small></div></div>
+<div class="step"><div class="step-num">2</div><div><b>Invite wallets</b><small>Admin invites each member using their MetaMask address.</small></div></div>
+<div class="step"><div class="step-num">3</div><div><b>Members join</b><small>Invited wallets pay security deposit in MON.</small></div></div>
+<div class="step"><div class="step-num">4</div><div><b>Pay equally</b><small>The MON cycle amount is split among joined members.</small></div></div>
+</div>
+</section>
+ 
+    <div class="hidden-admin">
+<input id="contractAddress" value="0xFCEEc671b57A7f9FA634c23DfC82d1a62e6BEB65" />
+<input id="currentGroupId" type="number" value="0" min="0" />
+</div>
+ 
+    <div class="tabs">
+<button id="tab-dashboard" class="tab active" onclick="showTab('dashboard', this)">Dashboard</button>
+<button id="tab-create" class="tab" onclick="showTab('create', this)">Create Group</button>
+<button id="tab-invite" class="tab" onclick="showTab('invite', this)">Invite / Join</button>
+<button id="tab-payments" class="tab" onclick="showTab('payments', this)">Payments</button>
+<button id="tab-admin" class="tab" onclick="showTab('admin', this)">Admin Transfer</button>
+<button id="tab-activity" class="tab" onclick="showTab('activity', this)">Activity</button>
+</div>
+ 
+    <section id="dashboard" class="section active">
+<div class="grid">
+<div class="panel">
+<h2>Group dashboard</h2>
+<p class="helper">Overview of the active subscription group and current equal MON split.</p>
+<div class="stats">
+<div class="stat"><span>Group</span><strong id="statGroup">-</strong></div>
+<div class="stat"><span>Plan</span><strong id="statPlan">-</strong></div>
+<div class="stat"><span>Total MON</span><strong id="statTotalMon">-</strong></div>
+<div class="stat"><span>Each owes</span><strong id="statShare">-</strong></div>
+</div>
+<div class="actions">
+<button class="btn-primary" onclick="loadGroup()">Refresh group</button>
+<button class="btn-light" onclick="loadMembers()">View members</button>
+<button class="btn-light" onclick="loadMyStatus()">My status</button>
+</div>
+<div id="groupDetails" class="status">Connect MetaMask, then refresh the dashboard.</div>
+<div id="membersList" style="margin-top:14px;"></div>
+</div>
+ 
+        <div class="panel">
+<h2>Your wallet</h2>
+<p class="helper">Your wallet status inside the selected group.</p>
+<div id="myStatus" class="status">No wallet loaded yet.</div>
+<div class="actions">
+<button class="btn-dark" onclick="loadMyStatus()">Check my status</button>
+<button class="btn-ghost" onclick="toggleAdvanced()">Advanced settings</button>
+</div>
+<div id="advancedSettings" class="status" style="display:none;">
+<label>Contract Address</label>
+<input id="visibleContractAddress" value="0xFCEEc671b57A7f9FA634c23DfC82d1a62e6BEB65" oninput="syncContractAddress()" />
+<br><br>
+<label>Group ID</label>
+<input id="visibleGroupId" type="number" value="0" min="0" oninput="syncGroupId()" />
+<div class="actions"><button class="btn-dark" onclick="loadContract()">Load contract</button></div>
+</div>
+</div>
+</div>
+</section>
+ 
+    <section id="create" class="section">
+<div class="panel">
+<h2>Create subscription group</h2>
+<p class="helper">Users see the plan in USD/RM/SGD, but payments happen in MON. For demo, use cycle seconds like 60.</p>
+<div class="form-grid">
+<div><label>Group name</label><input id="newGroupName" value="Netflix Family Plan" /></div>
+<div><label>Recipient wallet</label><input id="recipient" placeholder="0x wallet receiving subscription payment" /></div>
+<div><label>Currency code</label><input id="currencyCode" value="USD" /></div>
+<div><label>Plan amount</label><input id="planAmount" type="number" step="0.01" value="30" /></div>
+<div><label>MON per 1 currency unit</label><input id="monRate" type="number" step="0.000001" value="0.1" /></div>
+<div><label>Cycle duration in seconds</label><input id="cycleSeconds" type="number" value="60" /></div>
+</div>
+<div class="notice" style="margin-top:16px;">Example: USD 30 × 0.1 MON = 3 MON per cycle. If 3 members joined, each owes 1 MON.</div>
+<button class="btn-primary" onclick="createGroup()">Create group on Monad</button>
+</div>
+</section>
+ 
+    <section id="invite" class="section">
+<div class="grid">
+<div class="panel">
+<h2>Invite member</h2>
+<p class="helper">Only the admin wallet can invite. The invited person must switch MetaMask to that wallet to join.</p>
+<label>Member wallet address</label>
+<input id="inviteWallet" placeholder="0x..." />
+<button class="btn-primary" style="margin-top:16px;" onclick="inviteMember()">Invite wallet</button>
+</div>
+<div class="panel">
+<h2>Join as member</h2>
+<p class="helper">Use the invited wallet. The join deposit is 3 cycles of the projected equal share.</p>
+<button class="btn-light" onclick="previewJoinDeposit()">Preview required deposit</button>
+<div id="joinPreview" class="status">Preview not loaded.</div>
+<button class="btn-dark" onclick="joinGroup()">Join and pay MON deposit</button>
+</div>
+</div>
+</section>
+ 
+    <section id="payments" class="section">
+<div class="grid">
+<div class="panel">
+<h2>Add MON balance</h2>
+<p class="helper">Members top up their group balance before payment is triggered.</p>
+<label>Deposit amount in MON</label>
+<input id="depositAmount" type="number" step="0.000001" placeholder="1" />
+<button class="btn-primary" style="margin-top:16px;" onclick="depositBalance()">Deposit MON</button>
+</div>
+<div class="panel">
+<h2>Trigger payment</h2>
+<p class="helper">When cycle time is due, this collects each member’s equal MON share and sends it to the recipient.</p>
+<button class="btn-dark" onclick="triggerPayment()">Trigger subscription payment</button>
+</div>
+</div>
+</section>
+ 
+    <section id="admin" class="section">
+<div class="grid">
+<div class="panel">
+<h2>Transfer admin role</h2>
+<p class="helper">The current admin proposes a joined member as the new admin. Members vote from their own wallets.</p>
+<label>Proposed admin wallet</label>
+<input id="proposedAdmin" placeholder="0x..." />
+<div class="actions">
+<button class="btn-primary" onclick="proposeNewAdmin()">Create proposal</button>
+<button class="btn-light" onclick="loadProposal()">Load proposal</button>
+</div>
+<div id="proposalBox" class="status">No proposal loaded.</div>
+</div>
+<div class="panel">
+<h2>Vote and execute</h2>
+<p class="helper">Joined members vote. Once majority is reached, execute the proposal.</p>
+<div class="actions">
+<button class="btn-dark" onclick="voteForAdmin(true)">Vote YES</button>
+<button class="btn-light" onclick="voteForAdmin(false)">Vote NO</button>
+<button class="btn-primary" onclick="executeAdminProposal()">Execute proposal</button>
+<button class="btn-danger" onclick="cancelAdminProposal()">Cancel</button>
+</div>
+</div>
+</div>
+</section>
+ 
+    <section id="activity" class="section">
+<div class="grid">
+<div class="panel">
+<h2>Activity log</h2>
+<p class="helper">On-chain alerts for invites, joins, deposits, payments, recalculations, exits, and admin changes.</p>
+<button class="btn-primary" onclick="loadActivity()">Load activity</button>
+<div id="activityList" style="margin-top:16px;"></div>
+</div>
+<div class="panel">
+<h2>Exit / cancel</h2>
+<p class="helper">Members can leave. Admin must transfer the admin role before leaving. Admin can cancel the group.</p>
+<div class="actions">
+<button class="btn-light" onclick="leaveGroup()">Leave group</button>
+<button class="btn-danger" onclick="cancelGroup()">Cancel group</button>
+</div>
+</div>
+</div>
+</section>
+ 
+    <div id="status" class="status">Ready.</div>
+</div>
+ 
+  <script>
+
+    const DEFAULT_CONTRACT_ADDRESS = "0xFCEEc671b57A7f9FA634c23DfC82d1a62e6BEB65";
+ 
+    const MONAD_TESTNET = {
+
+      chainId: "0x279F",
+
+      chainName: "Monad Testnet",
+
+      nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
+
+      rpcUrls: ["https://testnet-rpc.monad.xyz"],
+
+      blockExplorerUrls: ["https://testnet.monadvision.com"]
+
+    };
+ 
+    const ABI = [
+
+      "function createGroup(string name,address payable recipient,string currencyCode,uint256 planAmountCents,uint256 monPerCurrencyUnitWei,uint256 cycleSeconds) returns (uint256)",
+
+      "function inviteMember(uint256 gid,address wallet)",
+
+      "function joinGroup(uint256 gid) payable",
+
+      "function depositBalance(uint256 gid) payable",
+
+      "function triggerPayment(uint256 gid)",
+
+      "function leaveGroup(uint256 gid)",
+
+      "function cancelGroup(uint256 gid)",
+
+      "function proposeNewAdmin(uint256 gid,address proposedAdmin)",
+
+      "function voteForAdmin(uint256 gid,bool approve)",
+
+      "function executeAdminProposal(uint256 gid)",
+
+      "function cancelAdminProposal(uint256 gid)",
+
+      "function getGroup(uint256 gid) view returns (string,address,address,string,uint256,uint256,uint256,uint256,uint8,uint256)",
+
+      "function getMember(uint256 gid,address wallet) view returns (uint256,uint256,uint256,uint8)",
+
+      "function getMembers(uint256 gid) view returns (address[])",
+
+      "function getAlerts(uint256 gid) view returns (tuple(string message,address concerning,uint256 timestamp)[])",
+
+      "function getAdminProposal(uint256 gid) view returns (address,uint256,uint256,uint8,uint256)",
+
+      "function getTotalCycleAmountInMON(uint256 gid) view returns (uint256)",
+
+      "function getJoinedMemberCount(uint256 gid) view returns (uint256)",
+
+      "function getCurrentEqualShare(uint256 gid) view returns (uint256)",
+
+      "function getRequiredSecurityDeposit(uint256 gid) view returns (uint256)"
+
+    ];
+ 
+    let provider, signer, contract, userAddress;
+ 
+    const memberStates = ["None", "Invited", "Joined", "Left", "Removed"];
+
+    const groupStates = ["Active", "Cancelled"];
+
+    const proposalStates = ["None", "Pending", "Approved", "Rejected", "Cancelled"];
+ 
+    function gid() { return Number(document.getElementById("currentGroupId").value || 0); }
+
+    function setStatus(message) { document.getElementById("status").innerText = message; }
+
+    function shortAddress(addr) { if (!addr || addr === ethers.ZeroAddress) return "-"; return addr.slice(0, 6) + "..." + addr.slice(-4); }
+
+    function toWei(value) { return ethers.parseEther(String(value || "0")); }
+
+    function fromWei(value) { return Number(ethers.formatEther(value)).toFixed(6).replace(/0+$/, '').replace(/\.$/, ''); }
+
+    function toCents(value) { return Math.round(Number(value || 0) * 100); }
+ 
+    function syncContractAddress() { document.getElementById("contractAddress").value = document.getElementById("visibleContractAddress").value; }
+
+    function syncGroupId() { document.getElementById("currentGroupId").value = document.getElementById("visibleGroupId").value; }
+
+    function toggleAdvanced() {
+
+      const box = document.getElementById("advancedSettings");
+
+      box.style.display = box.style.display === "none" ? "block" : "none";
+
+    }
+ 
+    async function connectWallet() {
+
+      if (!window.ethereum) { alert("Please install MetaMask."); return; }
+
+      await window.ethereum.request({ method: "eth_requestAccounts" });
+
+      try {
+
+        await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: MONAD_TESTNET.chainId }] });
+
+      } catch (error) {
+
+        if (error.code === 4902) await window.ethereum.request({ method: "wallet_addEthereumChain", params: [MONAD_TESTNET] });
+
+        else throw error;
+
+      }
+
+      provider = new ethers.BrowserProvider(window.ethereum);
+
+      signer = await provider.getSigner();
+
+      userAddress = await signer.getAddress();
+
+      document.getElementById("walletId").innerText = shortAddress(userAddress);
+
+      setStatus("Connected wallet: " + userAddress);
+
+      await loadContract();
+
+    }
+ 
+    async function loadContract() {
+
+      if (!signer) return;
+
+      const address = document.getElementById("contractAddress").value.trim() || DEFAULT_CONTRACT_ADDRESS;
+
+      if (!ethers.isAddress(address)) { alert("Invalid contract address in advanced settings."); return; }
+
+      contract = new ethers.Contract(address, ABI, signer);
+
+      setStatus("Contract loaded behind the scenes.");
+
+    }
+ 
+    async function requireContract() {
+
+      if (!signer) await connectWallet();
+
+      if (!contract) await loadContract();
+
+      return contract;
+
+    }
+ 
+    async function createGroup() {
+
+      const c = await requireContract();
+
+      const name = document.getElementById("newGroupName").value.trim();
+
+      const recipient = document.getElementById("recipient").value.trim();
+
+      const currency = document.getElementById("currencyCode").value.trim().toUpperCase();
+
+      const planCents = toCents(document.getElementById("planAmount").value);
+
+      const monRateWei = toWei(document.getElementById("monRate").value);
+
+      const seconds = Number(document.getElementById("cycleSeconds").value);
+
+      const tx = await c.createGroup(name, recipient, currency, planCents, monRateWei, seconds);
+
+      setStatus("Creating group... Tx: " + tx.hash);
+
+      await tx.wait();
+
+      setStatus("Group created. First group is usually Group ID 0.");
+
+      await loadGroup();
+
+    }
+ 
+    async function loadGroup() {
+
+      const c = await requireContract();
+
+      const g = await c.getGroup(gid());
+
+      const totalMon = await c.getTotalCycleAmountInMON(gid());
+
+      const share = await c.getCurrentEqualShare(gid());
+
+      const joinedCount = await c.getJoinedMemberCount(gid());
+
+      const planDisplay = `${g[3]} ${(Number(g[4]) / 100).toFixed(2)}`;
+
+      document.getElementById("statGroup").innerText = g[0];
+
+      document.getElementById("statPlan").innerText = planDisplay;
+
+      document.getElementById("statTotalMon").innerText = `${fromWei(totalMon)} MON`;
+
+      document.getElementById("statShare").innerText = `${fromWei(share)} MON`;
+
+      document.getElementById("groupDetails").innerHTML = `
+<b>Admin:</b> <span class="address">${g[1]}</span><br>
+<b>Recipient:</b> <span class="address">${g[2]}</span><br>
+<b>Currency Plan:</b> ${planDisplay}<br>
+<b>MON Rate:</b> ${fromWei(g[5])} MON per ${g[3]} 1<br>
+<b>Total MON per Cycle:</b> ${fromWei(totalMon)} MON<br>
+<b>Joined Members:</b> ${joinedCount.toString()}<br>
+<b>Cycle Seconds:</b> ${g[6].toString()}<br>
+<b>State:</b> ${groupStates[Number(g[8])]}
+
+      `;
+
+      setStatus("Group loaded.");
+
+    }
+ 
+    async function loadMembers() {
+
+      const c = await requireContract();
+
+      const list = await c.getMembers(gid());
+
+      const box = document.getElementById("membersList");
+
+      if (!list.length) { box.innerHTML = `<div class="member-card">No members found.</div>`; return; }
+
+      let html = "";
+
+      for (const addr of list) {
+
+        const m = await c.getMember(gid(), addr);
+
+        const stateName = memberStates[Number(m[3])];
+
+        const badgeClass = stateName === "Joined" ? "green" : stateName === "Invited" ? "yellow" : stateName === "None" ? "purple" : "red";
+
+        html += `<div class="member-card"><b class="address">${addr}</b><br><span class="badge ${badgeClass}">${stateName}</span><small>Balance: ${fromWei(m[0])} MON | Security Deposit: ${fromWei(m[1])} MON | Strikes: ${m[2].toString()}</small></div>`;
+
+      }
+
+      box.innerHTML = html;
+
+      setStatus("Members loaded.");
+
+    }
+ 
+    async function loadMyStatus() {
+
+      const c = await requireContract();
+
+      const m = await c.getMember(gid(), userAddress);
+
+      document.getElementById("myStatus").innerHTML = `<b>Wallet:</b> <span class="address">${userAddress}</span><br><b>Status:</b> ${memberStates[Number(m[3])]}<br><b>Balance:</b> ${fromWei(m[0])} MON<br><b>Security Deposit:</b> ${fromWei(m[1])} MON<br><b>Strikes:</b> ${m[2].toString()}`;
+
+      setStatus("Wallet status loaded.");
+
+    }
+ 
+    async function inviteMember() {
+
+      const c = await requireContract();
+
+      const wallet = document.getElementById("inviteWallet").value.trim();
+
+      if (!ethers.isAddress(wallet)) return alert("Enter a valid wallet address.");
+
+      const tx = await c.inviteMember(gid(), wallet);
+
+      setStatus("Inviting wallet... Tx: " + tx.hash);
+
+      await tx.wait();
+
+      setStatus("Wallet invited. Ask the person to switch MetaMask to that wallet and join.");
+
+      await loadMembers(); await loadActivity();
+
+    }
+ 
+    async function previewJoinDeposit() {
+
+      const c = await requireContract();
+
+      const deposit = await c.getRequiredSecurityDeposit(gid());
+
+      const share = await c.getCurrentEqualShare(gid());
+
+      document.getElementById("joinPreview").innerHTML = `<b>Required Join Deposit:</b> ${fromWei(deposit)} MON<br><small>3 cycles of the projected equal share.</small><small>Current joined-member share: ${fromWei(share)} MON</small>`;
+
+    }
+ 
+    async function joinGroup() {
+
+      const c = await requireContract();
+
+      const deposit = await c.getRequiredSecurityDeposit(gid());
+
+      const tx = await c.joinGroup(gid(), { value: deposit });
+
+      setStatus("Joining group and paying deposit... Tx: " + tx.hash);
+
+      await tx.wait();
+
+      setStatus("Joined group successfully.");
+
+      await loadMyStatus(); await loadGroup(); await loadActivity();
+
+    }
+ 
+    async function depositBalance() {
+
+      const c = await requireContract();
+
+      const amount = toWei(document.getElementById("depositAmount").value);
+
+      const tx = await c.depositBalance(gid(), { value: amount });
+
+      setStatus("Depositing MON... Tx: " + tx.hash);
+
+      await tx.wait();
+
+      setStatus("MON deposited into group balance.");
+
+      await loadMyStatus(); await loadActivity();
+
+    }
+ 
+    async function triggerPayment() {
+
+      const c = await requireContract();
+
+      const tx = await c.triggerPayment(gid());
+
+      setStatus("Triggering subscription payment... Tx: " + tx.hash);
+
+      await tx.wait();
+
+      setStatus("Payment triggered.");
+
+      await loadGroup(); await loadMembers(); await loadActivity();
+
+    }
+ 
+    async function proposeNewAdmin() {
+
+      const c = await requireContract();
+
+      const wallet = document.getElementById("proposedAdmin").value.trim();
+
+      if (!ethers.isAddress(wallet)) return alert("Enter a valid wallet address.");
+
+      const tx = await c.proposeNewAdmin(gid(), wallet);
+
+      setStatus("Creating admin proposal... Tx: " + tx.hash);
+
+      await tx.wait();
+
+      setStatus("Admin proposal created.");
+
+      await loadProposal(); await loadActivity();
+
+    }
+ 
+    async function voteForAdmin(approve) {
+
+      const c = await requireContract();
+
+      const tx = await c.voteForAdmin(gid(), approve);
+
+      setStatus(`Voting ${approve ? "YES" : "NO"}... Tx: ${tx.hash}`);
+
+      await tx.wait();
+
+      setStatus("Vote submitted.");
+
+      await loadProposal(); await loadActivity();
+
+    }
+ 
+    async function executeAdminProposal() {
+
+      const c = await requireContract();
+
+      const tx = await c.executeAdminProposal(gid());
+
+      setStatus("Executing proposal... Tx: " + tx.hash);
+
+      await tx.wait();
+
+      setStatus("Proposal execution transaction completed.");
+
+      await loadGroup(); await loadProposal(); await loadActivity();
+
+    }
+ 
+    async function cancelAdminProposal() {
+
+      const c = await requireContract();
+
+      const tx = await c.cancelAdminProposal(gid());
+
+      setStatus("Cancelling proposal... Tx: " + tx.hash);
+
+      await tx.wait();
+
+      setStatus("Proposal cancelled.");
+
+      await loadProposal(); await loadActivity();
+
+    }
+ 
+    async function loadProposal() {
+
+      const c = await requireContract();
+
+      const p = await c.getAdminProposal(gid());
+
+      document.getElementById("proposalBox").innerHTML = `<b>Proposed Admin:</b> <span class="address">${p[0]}</span><br><b>Yes Votes:</b> ${p[1].toString()}<br><b>No Votes:</b> ${p[2].toString()}<br><b>Status:</b> ${proposalStates[Number(p[3])]}<br><b>Created At:</b> ${Number(p[4]) === 0 ? '-' : new Date(Number(p[4]) * 1000).toLocaleString()}`;
+
+    }
+ 
+    async function loadActivity() {
+
+      const c = await requireContract();
+
+      const list = await c.getAlerts(gid());
+
+      const box = document.getElementById("activityList");
+
+      if (!list.length) { box.innerHTML = `<div class="activity-item">No activity yet.</div>`; return; }
+
+      box.innerHTML = list.map(a => `<div class="activity-item"><b>${a.message}</b><small>Wallet: <span class="address">${a.concerning}</span></small><small>${new Date(Number(a.timestamp) * 1000).toLocaleString()}</small></div>`).reverse().join("");
+
+      setStatus("Activity loaded.");
+
+    }
+ 
+    async function leaveGroup() {
+
+      const c = await requireContract();
+
+      const tx = await c.leaveGroup(gid());
+
+      setStatus("Leaving group... Tx: " + tx.hash);
+
+      await tx.wait();
+
+      setStatus("Left group.");
+
+      await loadMyStatus(); await loadGroup(); await loadActivity();
+
+    }
+ 
+    async function cancelGroup() {
+
+      const c = await requireContract();
+
+      const tx = await c.cancelGroup(gid());
+
+      setStatus("Cancelling group... Tx: " + tx.hash);
+
+      await tx.wait();
+
+      setStatus("Group cancelled.");
+
+      await loadGroup(); await loadActivity();
+
+    }
+ 
+    function showTab(id, button) {
+
+      document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+
+      document.getElementById(id).classList.add("active");
+
+      button.classList.add("active");
+
+    }
+ 
+    function showTabById(id) { document.getElementById(`tab-${id}`).click(); }
+ 
+    if (window.ethereum) {
+
+      window.ethereum.on("accountsChanged", () => window.location.reload());
+
+      window.ethereum.on("chainChanged", () => window.location.reload());
+
+    }
+</script>
+</body>
+</html>
+
+ 
